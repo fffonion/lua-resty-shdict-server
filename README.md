@@ -14,6 +14,7 @@ Table of Contents
 	* [Basic commands](#basic-commands)
     * [AUTH](#auth)
 	* [SELECT](#auth)
+	* [PING](#ping)
 - [Known Issues](#known-issues)
 - [TODO](#todo)
 - [Copyright and License](#copyright-and-license)
@@ -105,6 +106,25 @@ GET dog
 "wow"
 ```
 
+Also it supports [Redis RESP protocol](https://redis.io/topics/protocol).
+
+```shell
+$ redis-cli -h 127.0.0.1 -p 18001
+127.0.0.1:18001> get dogs
+(error) ERR authentication required
+127.0.0.1:18001> auth foobar
+OK
+127.0.0.1:18001> set dog wow
+(error) ERR no shdict selected
+127.0.0.1:18001> select dogs
+OK
+127.0.0.1:18001> set dog wow
+OK
+127.0.0.1:18001> get dog
+wow
+```
+
+
 [Back to TOC](#table-of-contents)
 
 
@@ -120,20 +140,26 @@ If *password* is not set, the server is public. If *password* is set, client mus
 
 If *shdict* is not set, client must call [select](#select) command to select a shared dictionary.
 
-shdict.server:serve()
+shdict.server:serve(mode)
 ---------------------
 
-Start the default handler in each subsystem. For `http` the default handler is `serve_http_plain`. For `stream` the default handler is `serve_stream_plain`.
+Start the server with handler named *mode`. To run handler `serve_stream_redis`, use:
+
+```Lua
+shdict.server:serve("stream_redis")
+```
+
+If *mode* is not defined, default handler for each subsystem is used. For `http` the default handler is `serve_http_plain`. For `stream` the default handler is `serve_stream_redis`.
 
 shdict.server:serve_http_plain()
 --------------------------------
 
 This handler accept a single HTTP request from client and send the response back in plain text.
 
-shdict.server:serve_stream_plain()
+shdict.server:serve_stream_redis()
 ----------------------------------
 
-This handler accept TCP connection, read line by line from client and send the response back in plain text.
+This handler accept TCP connection in inline or Redis protocol. A plain text TCP client like `telnet` or `nc` or a Redis-compatible client or library can be used to connect to the server.
 
 [Back to TOC](#table-of-contents)
 
@@ -146,28 +172,28 @@ Basic commands
 
 Methods from `ngx.shared.DICT` API are supported.
 
-* [ngx.shared.DICT](#ngxshareddict)
-* [ngx.shared.DICT.get](#ngxshareddictget)
-* [ngx.shared.DICT.get_stale](#ngxshareddictget_stale)
-* [ngx.shared.DICT.set](#ngxshareddictset)
-* [ngx.shared.DICT.safe_set](#ngxshareddictsafe_set)
-* [ngx.shared.DICT.add](#ngxshareddictadd)
-* [ngx.shared.DICT.safe_add](#ngxshareddictsafe_add)
-* [ngx.shared.DICT.replace](#ngxshareddictreplace)
-* [ngx.shared.DICT.delete](#ngxshareddictdelete)
-* [ngx.shared.DICT.incr](#ngxshareddictincr)
-* [ngx.shared.DICT.lpush](#ngxshareddictlpush)
-* [ngx.shared.DICT.rpush](#ngxshareddictrpush)
-* [ngx.shared.DICT.lpop](#ngxshareddictlpop)
-* [ngx.shared.DICT.rpop](#ngxshareddictrpop)
-* [ngx.shared.DICT.llen](#ngxshareddictllen)
-* [ngx.shared.DICT.ttl](#ngxshareddictttl)
-* [ngx.shared.DICT.expire](#ngxshareddictexpire)
-* [ngx.shared.DICT.flush_all](#ngxshareddictflush_all)
-* [ngx.shared.DICT.flush_expired](#ngxshareddictflush_expired)
-* [ngx.shared.DICT.get_keys](#ngxshareddictget_keys)
-* [ngx.shared.DICT.capacity](#ngxshareddictcapacity)
-* [ngx.shared.DICT.free_space](#ngxshareddictfree_space)
+* [ngx.shared.DICT](https://github.com/openresty/lua-nginx-module#ngxshareddict)
+* [ngx.shared.DICT.get](https://github.com/openresty/lua-nginx-module#ngxshareddictget)
+* [ngx.shared.DICT.get_stale](https://github.com/openresty/lua-nginx-module#ngxshareddictget_stale)
+* [ngx.shared.DICT.set](https://github.com/openresty/lua-nginx-module#ngxshareddictset)
+* [ngx.shared.DICT.safe_set](https://github.com/openresty/lua-nginx-module#ngxshareddictsafe_set)
+* [ngx.shared.DICT.add](https://github.com/openresty/lua-nginx-module#ngxshareddictadd)
+* [ngx.shared.DICT.safe_add](https://github.com/openresty/lua-nginx-module#ngxshareddictsafe_add)
+* [ngx.shared.DICT.replace](https://github.com/openresty/lua-nginx-module#ngxshareddictreplace)
+* [ngx.shared.DICT.delete](https://github.com/openresty/lua-nginx-module#ngxshareddictdelete)
+* [ngx.shared.DICT.incr](https://github.com/openresty/lua-nginx-module#ngxshareddictincr)
+* [ngx.shared.DICT.lpush](https://github.com/openresty/lua-nginx-module#ngxshareddictlpush)
+* [ngx.shared.DICT.rpush](https://github.com/openresty/lua-nginx-module#ngxshareddictrpush)
+* [ngx.shared.DICT.lpop](https://github.com/openresty/lua-nginx-module#ngxshareddictlpop)
+* [ngx.shared.DICT.rpop](https://github.com/openresty/lua-nginx-module#ngxshareddictrpop)
+* [ngx.shared.DICT.llen](https://github.com/openresty/lua-nginx-module#ngxshareddictllen)
+* [ngx.shared.DICT.ttl](https://github.com/openresty/lua-nginx-module#ngxshareddictttl)
+* [ngx.shared.DICT.expire](https://github.com/openresty/lua-nginx-module#ngxshareddictexpire)
+* [ngx.shared.DICT.flush_all](https://github.com/openresty/lua-nginx-module#ngxshareddictflush_all)
+* [ngx.shared.DICT.flush_expired](https://github.com/openresty/lua-nginx-module#ngxshareddictflush_expired)
+* [ngx.shared.DICT.get_keys](https://github.com/openresty/lua-nginx-module#ngxshareddictget_keys)
+* [ngx.shared.DICT.capacity](https://github.com/openresty/lua-nginx-module#ngxshareddictcapacity)
+* [ngx.shared.DICT.free_space](https://github.com/openresty/lua-nginx-module#ngxshareddictfree_space)
 
 Some of the commands require the `resty.core` being installed and is limited in the stream subsystem where `resty.core` is not available yet.
 
@@ -188,6 +214,8 @@ Authenticate to the server.
 AUTH password
 ```
 
+Returns **OK** if *password* is valid.
+
 SELECT
 ------
 
@@ -196,6 +224,19 @@ Select a shared dictionary.
 ```
 SELECT shdict
 ```
+
+Returns **OK** if *shdict* is found.
+
+PING
+----
+
+Test connection to the server.
+
+```
+PING
+```
+
+Returns `PONG`.
 
 [Back to TOC](#table-of-contents)
 
@@ -212,10 +253,9 @@ TODO
 ====
 
 - Add tests.
-- Implement a CLI tool.
-- Apply data type convertion to distinguish string, number and nil.
-- Redis compatible protocol.
 - Add EVAL command.
+- Add INFO command.
+- Map commands to redis commands.
 
 [Back to TOC](#table-of-contents)
 

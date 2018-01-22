@@ -2,6 +2,11 @@
 
 require "resty.core"
 
+local sub = string.sub
+local byte = string.byte
+local pairs = pairs
+local table_concat = table.concat
+
 local ok, new_tab = pcall(require, "table.new")
 if not ok or type(new_tab) ~= "function" then
     new_tab = function (narr, nrec) return {} end
@@ -13,6 +18,7 @@ _M._VERSION = '0.01'
 
 -- shdict API has 4 arguments at most
 local SHDICT_MAX_ARGUMENTS = 4
+local CRLF = "\r\n"
 
 local mt = { __index = _M }
 
@@ -42,7 +48,10 @@ local function _do_cmd(self, cmd, args)
             break
         end
 
-        if cmd == "select" then
+        if cmd == "ping" then
+            ret.msg = "PONG"
+            break
+        elseif cmd == "select" then
             self.shdict = args[1]
         elseif not self.shdict then
             ret.err = "no shdict selected"
@@ -91,7 +100,7 @@ local function _do_cmd(self, cmd, args)
     return ret
 end
 
-local function _parse(line)
+local function _parse_line(line)
     local cmd
     local args = new_tab(SHDICT_MAX_ARGUMENTS, 0) 
 
@@ -123,6 +132,8 @@ local function _parse(line)
                 unquoted = false
             elseif d_quote_level > 0 then
                 flush_buf = true
+            elseif s_quote_level > 0 then
+                buf[#buf + 1] = '"'
             else
                 d_quote_level = d_quote_level + 1
             end
@@ -132,6 +143,8 @@ local function _parse(line)
                 unquoted = false
             elseif s_quote_level > 0 then
                 flush_buf = true
+            elseif d_quote_level > 0 then
+                buf[#buf + 1] = "'"
             else
                 s_quote_level = s_quote_level + 1
             end
@@ -159,17 +172,16 @@ local function _parse(line)
             buf[#buf + 1] = v
         end
 
-
         if flush_buf then
             -- move buf to cmd or args
             if not cmd then
-                cmd = table.concat(buf, ""):lower()
+                cmd = table_concat(buf, ""):lower()
             else
                 -- exceeds max argument count
                 if argc >= SHDICT_MAX_ARGUMENTS then
                     return nil, nil
                 end
-                args[argc + 1] = table.concat(buf, "")
+                args[argc + 1] = table_concat(buf, "")
                 argc = argc + 1
             end
             buf = {}
@@ -177,7 +189,6 @@ local function _parse(line)
             d_quote_level = 0
             s_quote_level = 0
         end
-
     end
 
     -- has unmatched quotes
@@ -188,13 +199,13 @@ local function _parse(line)
     -- flush rest buffer
     if #buf > 0 then
         if not cmd then
-            cmd = table.concat(buf, ""):lower()
+            cmd = table_concat(buf, ""):lower()
         else
             -- exceeds max argument count
             if argc >= SHDICT_MAX_ARGUMENTS then
                 return nil, nil
             end
-            args[argc + 1] = table.concat(buf, "")
+            args[argc + 1] = table_concat(buf, "")
             argc = argc + 1
         end
     end
@@ -203,9 +214,7 @@ local function _parse(line)
 end
 
 
-local function output_plain(self, cmd, args)
-    local ret = _do_cmd(self, cmd, args)
-
+local function output_plain(ret)
     local output
 
     if ret.err then
@@ -219,9 +228,9 @@ local function output_plain(self, cmd, args)
             elseif type(ret.msg) == 'table' then
                 local r = {}
                 for i, v in pairs(ret.msg) do
-                    r[#r + 1 ] = i .. ") " .. v
+                    r[#r + 1] = i .. ") " .. v
                 end
-                output = table.concat(r, "\n")
+                output = table_concat(r, "\n")
             else
                 output = ret.msg
             end
@@ -239,56 +248,207 @@ function _M.serve_http_plain(self)
     self.shdict = ngx.var.arg_dict or self.shdict
     -- silently ignore password if there's no password set
     if self.password and ngx.var.arg_password then
-        local ret = output_plain(self, "auth", { ngx.var.arg_password })
-        if ret ~= "OK" then
-            ngx.say(ret)
+        local ret = _do_cmd(self, "auth", { ngx.var.arg_password })
+        if ret.err ~= nil then
+            ngx.say(output_plain(ret))
             return
         end
     end
 
-    local cmd, args = _parse(ngx.unescape_uri(ngx.var.arg_cmd))
+    local cmd, args = _parse_line(ngx.unescape_uri(ngx.var.arg_cmd))
 
     if not cmd then
         ngx.say("Invalid argument(s)")
         return
     end
 
-    ngx.say(output_plain(self, cmd, args))
+    local ret = _do_cmd(self, cmd, args)
+    ngx.say(output_plain(ret))
 
 end
 
-function _M.serve_stream_plain(self)
-    -- stream subsystem server returning a single line response in a loop
+local function _parse_redis_req(line, sock)
+    -- parse RESP protocol request with a preread line and the request socket
+    local err
+    if not line then
+        line, err = sock:receive()
+        if not line then
+            return nil, err
+        end
+    end
 
+    -- taken from lua-resty-redis._read_reply
+    local prefix = byte(line)
+
+    if prefix == 36 then    -- char '$'
+        -- print("bulk reply")
+
+        local size = tonumber(sub(line, 2))
+        if size < 0 then
+            return nil
+        end
+
+        local data, err = sock:receive(size)
+        if not data then
+            if err == "timeout" then
+                sock:close()
+            end
+            return nil, err
+        end
+
+        local dummy, err = sock:receive(2) -- ignore CRLF
+        if not dummy then
+            return nil, err
+        end
+
+        return data
+
+    elseif prefix == 43 then    -- char '+'
+        -- print("status reply")
+
+        return sub(line, 2)
+
+    elseif prefix == 42 then -- char '*'
+        local n = tonumber(sub(line, 2))
+
+        -- print("multi-bulk reply: ", n)
+        if n < 0 then
+            return null
+        end
+
+        local cmd
+        local vals = new_tab(n - 1, 0)
+        local nvals = 0
+        for i = 1, n do
+            local res, err = _parse_redis_req(nil, sock)
+            if res then
+                if cmd == nil then
+                    cmd = res
+                else
+                    nvals = nvals + 1
+                    vals[nvals] = res
+                end
+
+            elseif res == nil then
+                return nil, err
+
+            else
+                -- be a valid redis error value
+                if cmd == nil then
+                    cmd = res
+                else
+                    nvals = nvals + 1
+                    vals[nvals] = {false, err}
+                end
+            end
+        end
+
+        return cmd, vals
+
+    elseif prefix == 58 then    -- char ':'
+        -- print("integer reply")
+        return tonumber(sub(line, 2))
+
+    elseif prefix == 45 then    -- char '-'
+        -- print("error reply: ", n)
+
+        return false, sub(line, 2)
+
+    else
+        -- when `line` is an empty string, `prefix` will be equal to nil.
+        return nil, "unknown prefix: \"" .. tostring(prefix) .. "\""
+    end
+end
+
+local function _serialize_redis(data)
+    if data == nil then
+        return "$-1" .. CRLF
+    elseif type(data) == 'string' then
+        return "+" .. data .. CRLF
+    elseif type(data) == 'number' then
+        return ":" .. data .. CRLF
+    elseif type(data) == 'table' then
+        local r = {"$" .. #r}
+        -- only iterate the array part
+        for i, v in ipairs(data) do
+            r[#r + 1] = _serialize_redis(v)
+        end
+        -- add trailling CRLF
+        r[#r + 1] = ""
+        return table_concat(r, CRLF)
+    else
+        return "-ERR Type '" .. type(data) .. "' can't be serialized using RESP" .. CRLF
+    end
+end
+
+local function output_redis(ret)
+    if ret.err then
+        return "-ERR " .. ret.err .. "\r\n"
+    end
+    local output
+    if ret.has_msg then
+        return _serialize_redis(ret.msg)
+    else
+        return _serialize_redis("OK")
+    end
+
+end
+
+
+function _M.serve_stream_redis(self)
+    -- stream subsystem server that is Redis-compatible and supports RESP and inline protocol
     local sock = assert(ngx.req.socket(true))
     local shdict = self.shdict
+    local line, prefix, err
+    local cmd, args
     while true do
         -- read a line
-        local cmd, args = _parse(sock:receive())
+        line, err = sock:receive()
+        if not line then
+            if err == "timeout" then
+                sock:close()
+            end
+            return
+        end
+        prefix = byte(line)
+        if prefix == 42 then -- char '*'
+            cmd, args = _parse_redis_req(line, sock)
+            if cmd == nil then
+                ngx.print(output_redis({[err] = args}))
+            end
+        else
+            cmd, args = _parse_line(line)
+        end
 
         if not cmd then
             ngx.say("Invalid argument(s)")
-            return
+        else
+            local ret = _do_cmd(self, cmd, args)
+            if prefix == 42 then -- char '*'
+                ngx.print(output_redis(ret))
+            else
+                ngx.say(output_plain(ret))
+            end
         end
-
-        ngx.say(output_plain(self, cmd, args))
     end
 
+
+   
 end
 
 
 function _M.serve(self, mode)
     if not mode then
         if ngx.config.subsystem == "http" then
-            mode = "serve_http_plain"
+            mode = "http_plain"
         elseif ngx.config.subsystem == "stream" then
-            mode = "serve_stream_plain"
+            mode = "stream_redis"
         else
             ngx.log(ngx.ERR, "subsystem ", ngx.config.subsystem, " not supported")
             ngx.exit(500)
         end
     end
-    local handler = _M[mode]
+    local handler = _M["serve_" .. mode]
     if not handler then
         ngx.log(ngx.ERR, "handler ", mode, " not found")
         ngx.exit(500)
