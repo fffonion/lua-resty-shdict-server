@@ -49,6 +49,7 @@ local function _do_cmd(self, cmd, args)
         end
 
         if cmd == "ping" then
+            ret.has_msg = true
             ret.msg = "PONG"
             break
         elseif cmd == "select" then
@@ -242,8 +243,26 @@ local function output_plain(ret)
     return output
 end
 
+local function output_json(ret)
+    local output = {ok = true, response = nil, error = nil}
+    local json = require("cjson")
+    if not json then
+        ngx.log(ngx.ERR, "cjson is not found")
+        ngx.exit(500)
+    end
+    
+    if ret.err then
+        output.ok = false
+        output.error = ret.err
+    else
+        if ret.has_msg then
+            output.response = ret.msg
+        end
+    end
+    return json.encode(output)
+end
 
-function _M.serve_http_plain(self)
+function _M.serve_http(self, output_filter)
     -- HTTP subsystem server returning a single line response at a time
     self.shdict = ngx.var.arg_dict or self.shdict
     -- silently ignore password if there's no password set
@@ -263,9 +282,23 @@ function _M.serve_http_plain(self)
     end
 
     local ret = _do_cmd(self, cmd, args)
-    ngx.say(output_plain(ret))
+
+    output_filter = output_filter or output_plain
+    ngx.say(output_filter(ret))
 
 end
+
+function _M.serve_http_plain(self)
+    ngx.header.content_type = 'text/plain';
+    return _M.serve_http(self, output_plain)
+end
+
+function _M.serve_http_json(self)
+    ngx.header.content_type = 'application/json';
+    return _M.serve_http(self, output_json)
+end
+
+
 
 local function _parse_redis_req(line, sock)
     -- parse RESP protocol request with a preread line and the request socket
@@ -424,11 +457,7 @@ function _M.serve_stream_redis(self)
             ngx.say("Invalid argument(s)")
         else
             local ret = _do_cmd(self, cmd, args)
-            if prefix == 42 then -- char '*'
-                ngx.print(output_redis(ret))
-            else
-                ngx.say(output_plain(ret))
-            end
+            ngx.print(output_redis(ret))
         end
     end
 

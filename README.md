@@ -156,6 +156,20 @@ shdict.server:serve_http_plain()
 
 This handler accept a single HTTP request from client and send the response back in plain text.
 
+shdict.server:serve_http_json()
+-------------------------------
+
+This handler accept a single HTTP request from client and send the response back in json encoded text.
+
+shdict.server:serve_http(output_filter)
+---------------------------------------
+
+This handler accept a single HTTP request from client and send the response formatted by `output_filter`.
+
+If `output_filter` is not defined, **output_plain** is used and this handler is equivalent to `serve_http_plain`.
+
+`output_filter` is a function that takes a table as argument and returns a string. User can define their own filter and genereate desirable output.
+
 shdict.server:serve_stream_redis()
 ----------------------------------
 
