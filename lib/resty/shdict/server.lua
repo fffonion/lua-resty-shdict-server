@@ -427,7 +427,7 @@ end
 
 local function output_redis(ret)
     if ret.err then
-        return "-ERR " .. ret.err .. "\r\n"
+        return "-ERR " .. ret.err .. CRLF
     end
     local output
     if ret.has_msg then
@@ -458,14 +458,16 @@ function _M.serve_stream_redis(self)
         if prefix == 42 then -- char '*'
             cmd, args = _parse_redis_req(line, sock)
             if cmd == nil then
-                ngx.print(output_redis({[err] = args}))
+                ngx.print(output_redis({["err"] = args}))
             end
         else
             cmd, args = _parse_line(line)
         end
 
         if not cmd then
-            ngx.say("Invalid argument(s)")
+            ngx.print("Invalid argument(s)" .. CRLF)
+        elseif cmd == "quit" then
+            return
         else
             local ret = _do_cmd(self, cmd, args)
             ngx.print(output_redis(ret))

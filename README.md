@@ -290,10 +290,8 @@ Known Issues
 TODO
 ====
 
-- Add tests.
 - Add EVAL command.
 - Add INFO command.
-- Map commands to redis commands.
 
 [Back to TOC](#table-of-contents)
 
