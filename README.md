@@ -13,8 +13,9 @@ Table of Contents
 - [Commands](#commands)
 	* [Basic commands](#basic-commands)
     * [AUTH](#auth)
-	* [SELECT](#auth)
+	* [SELECT](#select)
 	* [PING](#ping)
+	* [KEYS](#keys)
 - [Known Issues](#known-issues)
 - [TODO](#todo)
 - [Copyright and License](#copyright-and-license)
@@ -52,7 +53,7 @@ server {
 	
 	location =/cli {
 		content_by_lua_block {
-
+			require "resty.core"
 			local srv = require("resty.shdict.server")
 			local s = srv:new("foobar", nil)
 			s:serve()
@@ -80,6 +81,7 @@ lua_shared_dict dogs 10m;
 server {
     listen 127.0.0.1:18001;
     content_by_lua_block {
+		require "resty.core.shdict"
         local srv = require("resty.shdict.server")
         local s = srv:new("foobar", nil)
         s:serve()
@@ -209,7 +211,7 @@ Methods from `ngx.shared.DICT` API are supported.
 * [ngx.shared.DICT.capacity](https://github.com/openresty/lua-nginx-module#ngxshareddictcapacity)
 * [ngx.shared.DICT.free_space](https://github.com/openresty/lua-nginx-module#ngxshareddictfree_space)
 
-Some of the commands require the `resty.core` being installed and is limited in the stream subsystem where `resty.core` is not available yet.
+Some of the commands like `ttl` and `capacity` require the `resty.core` being installed. To use these commands, put `require('resty.core')` for http subsystem and `require('resty.core.shdict')` for stream subsystem.
 
 Methods names are **case-insensitive**. Arguments are seperated by spaces.
 
@@ -218,6 +220,11 @@ For example:
 - To set a value **wow** with key **dog**, use `SET dog wow` or `sEt dog wow`.
 - To set a value **wow !** with key **dog**, use `SET dog "wow !"`.
 - To set a value **"wow" !** with key **dog**, use `SET dog "\"wow\" !"`.
+
+Some commands are mapped to redis-flavoured commands if `resty.shdict.redis-commands` is included.
+
+- `del` as an alias of `delete`
+- `flushall` as an alias of `flush_all`
 
 AUTH
 ----
@@ -250,7 +257,24 @@ Test connection to the server.
 PING
 ```
 
-Returns `PONG`.
+Returns **PONG**.
+
+KEYS
+----
+
+This command requires the `resty.shdict.redis-commands` module.
+
+The time complexity is **O(3n)**. This command is for debug only, please do not use in production code to search for keys.
+
+Returns all keys matching *pattern*. The *pattern* is a glob-style pattern.
+
+```
+KEYS do?
+KEYS do*
+KEYS do[a-z]
+```
+
+Returns a list of all keys found.
 
 [Back to TOC](#table-of-contents)
 

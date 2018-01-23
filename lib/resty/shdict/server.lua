@@ -1,10 +1,10 @@
 
 
-require "resty.core"
-
+local tonumber = tonumber
+local pairs = pairs
+local type = type
 local sub = string.sub
 local byte = string.byte
-local pairs = pairs
 local table_concat = table.concat
 
 local ok, new_tab = pcall(require, "table.new")
@@ -401,10 +401,21 @@ local function _serialize_redis(data)
     elseif type(data) == 'number' then
         return ":" .. data .. CRLF
     elseif type(data) == 'table' then
-        local r = {"$" .. #r}
+        local r = {"*" .. #data}
         -- only iterate the array part
         for i, v in ipairs(data) do
-            r[#r + 1] = _serialize_redis(v)
+            if type(v) == 'string' then
+                r[#r + 1] = "$" .. #v
+                r[#r + 1] = v
+            elseif type(v) == 'number' then
+                r[#r + 1] = ":" .. v
+            elseif type(v) == 'table' then
+                r[#r + 1] = _serialize_redis(v)
+            elseif v == nil then
+                r[#r + 1] = "$-1"
+            else
+                ngx.log(ngx.ERR, "value ", v, " can't be serialized in a array")
+            end
         end
         -- add trailling CRLF
         r[#r + 1] = ""
