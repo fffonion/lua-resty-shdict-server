@@ -1,7 +1,7 @@
 Name
 ====
 
-lua-resty-shdict-tool - An interface for debugging and serving ngx.shared dictionaries
+lua-resty-shdict-server - A HTTP and Redis protocol compatible interface for debugging ngx.shared API
 
 Table of Contents
 =================
@@ -26,7 +26,7 @@ Table of Contents
 Description
 ===========
 
-This is a tool to provide a `redis-cli`-like interface to debug [ngx.shared.DICT](https://github.com/openresty/lua-nginx-module#ngxshareddict) API.
+This is a library that provides a HTTP and a Redis protocol compatible interface to debug [ngx.shared.DICT](https://github.com/openresty/lua-nginx-module#ngxshareddict) API.
 
 It can also be used as a mocking Redis server (WIP).
 
@@ -41,7 +41,7 @@ Experimental.
 Synopsis
 ========
 
-Shared dictionaries defined in `http` and `stream` subsystems are not shared to each other, thus we need two sets of configurations to debug with either subsystem. Despite from this, this module provide a similar API to use in both subsystems.
+Shared dictionaries defined in `http` and `stream` subsystems are not shared to each other *currently*, thus we need two sets of configurations to debug with either subsystem. Despite from this, this module provide a similar API to use in both subsystems.
 
 http
 ----
@@ -282,7 +282,7 @@ EVAL
 
 This command requires the `resty.shdict.redis-commands` module.
 
-Run a Lua script on the server. The syntax is same with Redis [EVAL](https://redis.io/commands/eval). 
+Run a Lua script on the server. The syntax is same as Redis [EVAL](https://redis.io/commands/eval). 
 
 ```
 > EVAL script numkeys key [key ...] arg [arg ...]
@@ -301,7 +301,7 @@ For security reasons, only the following APIs are available:
 - `shdict.call` and `shdict.pcall`
 - `zone` as the current shdict instance
 
-Also an alias from `shdict.call` to `redis.call` is created for convenience.
+Also an alias from `redis.call` to `shdict.call` is created for convenience.
 
 [Back to TOC](#table-of-contents)
 
