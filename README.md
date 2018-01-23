@@ -11,11 +11,11 @@ Table of Contents
 - [Synopsis](#synopsis)
 - [API](#api)
 - [Commands](#commands)
-	* [Basic commands](#basic-commands)
+    * [Basic commands](#basic-commands)
     * [AUTH](#auth)
-	* [SELECT](#select)
-	* [PING](#ping)
-	* [KEYS](#keys)
+    * [SELECT](#select)
+    * [PING](#ping)
+    * [KEYS](#keys)
 - [Known Issues](#known-issues)
 - [TODO](#todo)
 - [Copyright and License](#copyright-and-license)
@@ -49,16 +49,16 @@ http
 lua_shared_dict dogs 10m;
 
 server {
-	listen 80;
-	
-	location =/cli {
-		content_by_lua_block {
-			require "resty.core"
-			local srv = require("resty.shdict.server")
-			local s = srv:new("foobar", nil)
-			s:serve()
-		}
-	}
+    listen 80;
+    
+    location =/cli {
+        content_by_lua_block {
+            require "resty.core"
+            local srv = require("resty.shdict.server")
+            local s = srv:new("foobar", nil)
+            s:serve()
+        }
+    }
 }
 ```
 
@@ -81,7 +81,7 @@ lua_shared_dict dogs 10m;
 server {
     listen 127.0.0.1:18001;
     content_by_lua_block {
-		require "resty.core.shdict"
+        require "resty.core.shdict"
         local srv = require("resty.shdict.server")
         local s = srv:new("foobar", nil)
         s:serve()
