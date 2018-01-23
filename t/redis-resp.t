@@ -1,3 +1,5 @@
+# vim:set ft= ts=4 sw=4 et fdm=marker:
+
 use Test::Nginx::Socket::Lua::Stream 'no_plan';
 
 no_shuffle();
@@ -20,6 +22,7 @@ __DATA__
 get\r
 \$4\r
 doge\r
+
 quit\r
 "
 
@@ -47,6 +50,7 @@ quit\r
 get\r
 \$4\r
 doge\r
+
 quit\r
 "
 
@@ -74,11 +78,13 @@ quit\r
 select\r
 \$4\r
 dogs\r
+
 *2\r
 \$3\r
 get\r
 \$4\r
 doge\r
+
 quit\r
 "
 
@@ -107,6 +113,7 @@ quit\r
 select\r
 \$4\r
 cats\r
+
 quit\r
 "
 
@@ -134,11 +141,13 @@ quit\r
 select\r
 \$4\r
 dogs\r
+
 *2\r
 \$3\r
 get\r
 \$4\r
 doge\r
+
 quit\r
 "
 
@@ -167,16 +176,19 @@ quit\r
 auth\r
 \$6\r
 foobar\r
+
 *2\r
 \$6\r
 select\r
 \$4\r
 dogs\r
+
 *2\r
 \$3\r
 get\r
 \$4\r
 doge\r
+
 quit\r
 "
 
@@ -206,16 +218,19 @@ quit\r
 auth\r
 \$9\r
 foobarbar\r
+
 *2\r
 \$6\r
 select\r
 \$4\r
 dogs\r
+
 *2\r
 \$3\r
 get\r
 \$4\r
 doge\r
+
 quit\r
 "
 
@@ -223,50 +238,6 @@ quit\r
 "-ERR invalid password\r
 -ERR authentication required\r
 -ERR authentication required\r
-"
-
---- no_error_log
-[error]
-
-
-=== TEST 8: Redis RESP protocol keys 
---- stream_config
-    lua_shared_dict dogs 1m;
---- stream_server_config
-    content_by_lua_block {
-        ngx.shared.dogs:set("doge1", "wow")
-        ngx.shared.dogs:set("doge2", "such")
-        ngx.shared.dogs:set("doge3", "doge")
-        require("resty.shdict.redis-commands")
-        local srv = require("resty.shdict.server")
-        local s = srv:new(nil, "dogs")
-        s:serve()
-    }
---- stream_request eval
-"*2\r
-\$4\r
-keys\r
-\$5\r
-doge*\r
-*2\r
-\$4\r
-keys\r
-\$5\r
-do?e1\r
-quit\r
-"
-
---- stream_response eval
-"*3\r
-\$5\r
-doge1\r
-\$5\r
-doge2\r
-\$5\r
-doge3\r
-*1\r
-\$5\r
-doge1\r
 "
 
 --- no_error_log

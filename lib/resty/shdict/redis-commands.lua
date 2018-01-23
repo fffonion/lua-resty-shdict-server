@@ -9,7 +9,12 @@ local type = type
 local error = error
 local ngx_shared = ngx.shared
 local getmetatable = getmetatable
+local setmetatable = setmetatable
 
+local ok, new_tab = pcall(require, "table.new")
+if not ok or type(new_tab) ~= "function" then
+    new_tab = function (narr, nrec) return {} end
+end
 
 -- resty.core.shdict
 local function check_zone(zone)
@@ -25,6 +30,7 @@ local function check_zone(zone)
     return zone
 end
 
+
 if ngx_shared then
     local _, dict = next(ngx_shared, nil)
     if dict then
@@ -36,11 +42,11 @@ if ngx_shared then
                 mt.del = mt.delete 
                 mt.flushall = mt.flush_all
                 -- new commands
-                mt.keys = function(L, pattern)
+                mt.keys = function(zone, pattern)
                     -- return a list of keys that matches given pattern
                     -- complexity is O(3n)
                     -- For debug only, do not use in production code
-                    local keys = mt.get_keys(L, 0)
+                    local keys = mt.get_keys(zone, 0)
                     -- Let's convert glob pattern to regexp pattern
                     -- a*b? => a.*b.
                     pattern = ngx.re.gsub(pattern, [=[[\*\?]{2,}]=], "*", "jo") -- remove continous * or ?
@@ -53,6 +59,64 @@ if ngx_shared then
                         end
                     end
                     return keys
+                end
+
+
+                                    
+                mt.eval = function(zone, code, numkeys, ...)
+                    local arg = {...}
+                    if numkeys ~= nil then
+                        numkeys = tonumber(numkeys)
+                        if numkeys == nil then
+                            return "nil", "value is not an integer or out of range"
+                        elseif numkeys < 0 then
+                            return nil, "Number of keys can't be negative"
+                        elseif #arg < numkeys then
+                            return nil, "Number of keys can't be greater than number of arg"
+                        end
+                    else
+                        return nil, "wrong number of arguments for 'eval' command"
+                    end
+
+                    local injected = [[
+shdict.call = function(cmd, ...)
+    assert(cmd and zone[cmd:lower()], "Unknown ngx.shared command called from Lua script")
+    return zone[cmd:lower()](zone, ...)
+end
+shdict.pcall = function(...)
+    local ok, result, err = pcall(shdict.call, ...)
+    if not ok then
+        return nil, result
+    end
+    return result, err
+end
+                    ]]
+                    -- provide a jailed environment
+                    -- optionally: http://metalua.luaforge.net/src/lib/strict.lua.html
+                    local env = {
+                        ngx = { shared = ngx.shared, re = ngx.re },
+                        shdict = new_tab(2, 0),
+                        zone = zone,
+                        KEYS = arg,
+                        ARGV = setmetatable({}, { __index = function(_, i) return arg[i + numkeys] end }), 
+                        assert = assert,
+                        pcall = pcall,
+                    }
+
+                    env['redis'] = env['shdict']
+
+                    local f, err = load(injected .. code, "=(user_script)", "t", env) 
+                    if not f then
+                        return nil, "Error compiling script " .. err
+                    end
+
+                    local ok, result, err = pcall(f)
+                    if not ok then
+                        -- TODO: fix the wrong line number becuase we injected some code
+                        return nil, "Error running script ".. result
+                    end
+                    return result, err
+
                 end
             end
         end

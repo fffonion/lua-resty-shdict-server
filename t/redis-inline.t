@@ -1,3 +1,5 @@
+# vim:set ft= ts=4 sw=4 et fdm=marker:
+
 use Test::Nginx::Socket::Lua::Stream 'no_plan';
 
 #no_shuffle();

@@ -16,6 +16,7 @@ Table of Contents
     * [SELECT](#select)
     * [PING](#ping)
     * [KEYS](#keys)
+	* [EVAL](#eval)
 - [Known Issues](#known-issues)
 - [TODO](#todo)
 - [Copyright and License](#copyright-and-license)
@@ -232,7 +233,7 @@ AUTH
 Authenticate to the server.
 
 ```
-AUTH password
+> AUTH password
 ```
 
 Returns **OK** if *password* is valid.
@@ -243,7 +244,7 @@ SELECT
 Select a shared dictionary.
 
 ```
-SELECT shdict
+> SELECT shdict
 ```
 
 Returns **OK** if *shdict* is found.
@@ -254,10 +255,9 @@ PING
 Test connection to the server.
 
 ```
-PING
+> PING
+PONG
 ```
-
-Returns **PONG**.
 
 KEYS
 ----
@@ -266,15 +266,42 @@ This command requires the `resty.shdict.redis-commands` module.
 
 The time complexity is **O(3n)**. This command is for debug only, please do not use in production code to search for keys.
 
-Returns all keys matching *pattern*. The *pattern* is a glob-style pattern.
+Returns all keys matching *pattern* in a list. The *pattern* is a glob-style pattern.
 
 ```
-KEYS do?
-KEYS do*
-KEYS do[a-z]
+> KEYS pattern
+> KEYS do?
+> KEYS do*
+> KEYS do[a-z]
 ```
 
 Returns a list of all keys found.
+
+EVAL
+----
+
+This command requires the `resty.shdict.redis-commands` module.
+
+Run a Lua script on the server. The syntax is same with Redis [EVAL](https://redis.io/commands/eval). 
+
+```
+> EVAL script numkeys key [key ...] arg [arg ...]
+> EVAL "shdict.call('set', 'dog', 'wow') 0
+(nil)
+> EVAL "return {KEYS[1],KEYS[2],ARGV[1],ARGV[2]}" 2 key1 key2 first second
+1) "key1"
+2) "key2"
+3) "first"
+4) "second"
+```
+
+For security reasons, only the following APIs are available:
+
+- `ngx.*` APIs except for `ngx.shared` and `ngx.re`
+- `shdict.call` and `shdict.pcall`
+- `zone` as the current shdict instance
+
+Also an alias from `shdict.call` to `redis.call` is created for convenience.
 
 [Back to TOC](#table-of-contents)
 
@@ -283,6 +310,7 @@ Known Issues
 ====
 
 - The library will use `resty.core` if it's installed, the behaviour will be slightly different from the C implementation. For example, missing arguments will be filled by `nil` when using `resty.core`, issuing `SET a` is equivalent to `SET a nil` in this situation.
+- For performance issues, inline protocol (HTTP inline or Redis inline) only accept four arguments at most. `EVAL` may fail with **Invalid argument(s)** for this reason. To solve this, always use other protocols (like Redis RESP protocol) to call these commands.
 
 [Back to TOC](#table-of-contents)
 
@@ -290,7 +318,6 @@ Known Issues
 TODO
 ====
 
-- Add EVAL command.
 - Add INFO command.
 
 [Back to TOC](#table-of-contents)
