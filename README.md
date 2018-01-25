@@ -297,8 +297,10 @@ Run a Lua script on the server. The syntax is same as Redis [EVAL](https://redis
 
 For security reasons, only the following APIs are available:
 
-- `ngx.*` APIs except for `ngx.shared` and `ngx.re`
-- `shdict.call` and `shdict.pcall`
+- Functions: `assert`, `error`, `getmetatable`, `ipairs`, `next`, `pairs`, `pcall`, `select`, `setmetatable`, `tonumber`, `tostring`, `unpack`
+- Modules: `bit`, `math`, `string`, `table`
+- `ngx.shared` and `ngx.re`
+- `shdict.call` and `shdict.pcall` for invoking shdict APIs
 - `zone` as the current shdict instance
 
 Also an alias from `redis.call` to `shdict.call` is created for convenience.
@@ -318,6 +320,7 @@ Known Issues
 TODO
 ====
 
+- Add more ngx.* API to EVAL command.
 - Add INFO command.
 
 [Back to TOC](#table-of-contents)
