@@ -84,7 +84,7 @@ local function _do_cmd(self, cmd, args)
             ret.err = result
             break
         end
-        if err then
+        if not result and err then
             -- shdict API error
             ret.err = err
         elseif result ~= true then
