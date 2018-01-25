@@ -38,10 +38,13 @@ if ngx_shared then
         if mt then
             mt = mt.__index
             if mt then
-                -- alias
-                mt.del = mt.delete 
-                mt.flushall = mt.flush_all
-                -- new commands
+                mt.delete = function(zone, ...)
+                    for i, key in ipairs({...}) do
+                        mt.set(zone, key, nil)
+                    end
+                    return true
+                end
+
                 mt.keys = function(zone, pattern)
                     if pattern == nil then
                         return nil, "expecting exactly two arguments, but only seen 1"
@@ -64,8 +67,6 @@ if ngx_shared then
                     return keys
                 end
 
-
-                                    
                 mt.eval = function(zone, code, numkeys, ...)
                     local arg = {...}
                     if numkeys ~= nil then
@@ -136,6 +137,22 @@ end
                     return result, err
 
                 end
+
+                mt.getflag = function(zone, key)
+                    local value, flag = mt.get(zone, key)
+                    if value == nil then
+                        return value, flag
+                    else
+                        return flag
+                    end
+                end
+
+                -- alias
+                mt.del = mt.delete
+                mt.flushall = mt.flush_all
+                mt.setnx = mt.add
+                mt.setex = mt.replace
+
             end
         end
     end
