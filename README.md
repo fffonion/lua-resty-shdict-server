@@ -17,6 +17,8 @@ Table of Contents
     * [PING](#ping)
     * [KEYS](#keys)
 	* [EVAL](#eval)
+    * [DEL](#del)
+    * [GETFLAG](#getflag)
 - [Known Issues](#known-issues)
 - [TODO](#todo)
 - [Copyright and License](#copyright-and-license)
@@ -83,6 +85,7 @@ server {
     listen 127.0.0.1:18001;
     content_by_lua_block {
         require "resty.core.shdict"
+        require "resty.shdict.redis-commands"
         local srv = require("resty.shdict.server")
         local s = srv:new("foobar", nil)
         s:serve()
@@ -98,15 +101,15 @@ Trying 127.0.0.1...
 Connected to 127.0.0.1.
 Escape character is '^]'.
 SELECT dogs
-ERR authentication required
+-ERR authentication required
 AUTH foobar
-OK
++OK
 SELECT dogs
-OK
++OK
 SET dog wow
-OK
++OK
 GET dog
-"wow"
++wow
 ```
 
 Also it supports [Redis RESP protocol](https://redis.io/topics/protocol).
@@ -224,7 +227,8 @@ For example:
 
 Some commands are mapped to redis-flavoured commands if `resty.shdict.redis-commands` is included.
 
-- `del` as an alias of `delete`
+- `setnx` as an alias of `add`
+- `setex` as an alias of `replace`
 - `flushall` as an alias of `flush_all`
 
 AUTH
@@ -232,31 +236,32 @@ AUTH
 
 Authenticate to the server.
 
+Returns **OK** if *password* is valid.
+
 ```
 > AUTH password
 ```
-
-Returns **OK** if *password* is valid.
 
 SELECT
 ------
 
 Select a shared dictionary.
 
+Returns **OK** if *shdict* is found.
+
 ```
 > SELECT shdict
 ```
-
-Returns **OK** if *shdict* is found.
 
 PING
 ----
 
 Test connection to the server.
 
+Returns **PONG**.
+
 ```
 > PING
-PONG
 ```
 
 KEYS
@@ -264,9 +269,9 @@ KEYS
 
 This command requires the `resty.shdict.redis-commands` module.
 
-The time complexity is **O(3n)**. This command is for debug only, please do not use in production code to search for keys.
+Return all keys matching *pattern* in a list. The *pattern* is a glob-style pattern.
 
-Returns all keys matching *pattern* in a list. The *pattern* is a glob-style pattern.
+The time complexity is **O(3n)**. This command is for debug only, please do not use in production code to search for keys.
 
 ```
 > KEYS pattern
@@ -274,8 +279,6 @@ Returns all keys matching *pattern* in a list. The *pattern* is a glob-style pat
 > KEYS do*
 > KEYS do[a-z]
 ```
-
-Returns a list of all keys found.
 
 EVAL
 ----
@@ -305,6 +308,35 @@ For security reasons, only the following APIs are available:
 
 Also an alias from `redis.call` to `shdict.call` is created for convenience.
 
+
+GETFLAG
+-------
+
+This command requires the `resty.shdict.redis-commands` module.
+
+Get the user flag for a key.
+
+Return `nil` if the user flag is not set or key is not found.
+
+```
+GETFLAG key
+```
+
+DEL
+---
+
+This command requires the `resty.shdict.redis-commands` module.
+
+Delete one or more keys from shdict.
+
+Returns **OK**.
+
+```
+DEL key [key ...]
+DELETE key [key ...]
+```
+
+
 [Back to TOC](#table-of-contents)
 
 
@@ -313,6 +345,7 @@ Known Issues
 
 - The library will use `resty.core` if it's installed, the behaviour will be slightly different from the C implementation. For example, missing arguments will be filled by `nil` when using `resty.core`, issuing `SET a` is equivalent to `SET a nil` in this situation.
 - For performance issues, inline protocol (HTTP inline or Redis inline) only accept four arguments at most. `EVAL` may fail with **Invalid argument(s)** for this reason. To solve this, always use other protocols (like Redis RESP protocol) to call these commands.
+- `EVAL` command is **not atomic** when running multiple `shdict.call` altough the script is run on server.
 
 [Back to TOC](#table-of-contents)
 
@@ -321,6 +354,8 @@ TODO
 ====
 
 - Add more ngx.* API to EVAL command.
+- Add atomic SETFLAG command.
+- Return affected keys count for DEL command.
 - Add INFO command.
 
 [Back to TOC](#table-of-contents)
