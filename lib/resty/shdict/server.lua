@@ -14,7 +14,7 @@ end
 
 local _M = new_tab(0, 54)
 
-_M._VERSION = '0.01'
+_M._VERSION = '0.02'
 
 -- shdict API has 4 arguments at most
 local SHDICT_MAX_ARGUMENTS = 4
