@@ -43,6 +43,9 @@ if ngx_shared then
                 mt.flushall = mt.flush_all
                 -- new commands
                 mt.keys = function(zone, pattern)
+                    if pattern == nil then
+                        return nil, "expecting exactly two arguments, but only seen 1"
+                    end
                     -- return a list of keys that matches given pattern
                     -- complexity is O(3n)
                     -- For debug only, do not use in production code
@@ -100,7 +103,22 @@ end
                         KEYS = arg,
                         ARGV = setmetatable({}, { __index = function(_, i) return arg[i + numkeys] end }), 
                         assert = assert,
+                        error = error,
+                        getmetatable = getmetatable,
+                        ipairs = ipairs,
+                        next = next,
+                        pairs = pairs,
                         pcall = pcall,
+                        select = select,
+                        setmetatable = setmetatable,
+                        tonumber = tonumber,
+                        tostring = tostring,
+                        unpack = unpack,
+
+                        bit = bit,
+                        math = math,
+                        string = string,
+                        table = table,
                     }
 
                     env['redis'] = env['shdict']

@@ -30,6 +30,7 @@ end
 
 local function _do_cmd(self, cmd, args)
     local ret = new_tab(0, 3) 
+    cmd = cmd:lower()
 
     while true do
         -- authentication
@@ -176,7 +177,7 @@ local function _parse_line(line)
         if flush_buf then
             -- move buf to cmd or args
             if not cmd then
-                cmd = table_concat(buf, ""):lower()
+                cmd = table_concat(buf, "")
             else
                 -- exceeds max argument count
                 if argc >= SHDICT_MAX_ARGUMENTS then
@@ -200,7 +201,7 @@ local function _parse_line(line)
     -- flush rest buffer
     if #buf > 0 then
         if not cmd then
-            cmd = table_concat(buf, ""):lower()
+            cmd = table_concat(buf, "")
         else
             -- exceeds max argument count
             if argc >= SHDICT_MAX_ARGUMENTS then
@@ -453,6 +454,9 @@ function _M.serve_stream_redis(self)
                 sock:close()
             end
             return
+        elseif #line == 0 then
+            -- ignore empty line
+            goto redis_nextline
         end
         prefix = byte(line)
         if prefix == 42 then -- char '*'
@@ -472,6 +476,7 @@ function _M.serve_stream_redis(self)
             local ret = _do_cmd(self, cmd, args)
             ngx.print(output_redis(ret))
         end
+        ::redis_nextline::
     end
 
 
