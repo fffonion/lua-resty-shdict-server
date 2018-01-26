@@ -7,6 +7,8 @@ local C = ffi.C
 local next = next
 local type = type
 local error = error
+local table_remove = table.remove
+local ngx_re = ngx.re
 local ngx_shared = ngx.shared
 local getmetatable = getmetatable
 local setmetatable = setmetatable
@@ -55,13 +57,13 @@ if ngx_shared then
                     local keys = mt.get_keys(zone, 0)
                     -- Let's convert glob pattern to regexp pattern
                     -- a*b? => a.*b.
-                    pattern = ngx.re.gsub(pattern, [=[[\*\?]{2,}]=], "*", "jo") -- remove continous * or ?
-                    pattern = ngx.re.gsub(pattern, [=[[\.\(\)]+]=], [[\$0]], "jo") -- add \ before . ( )
-                    pattern = ngx.re.gsub(pattern, [=[[\*\?]]=], ".$0", "jo") -- convert * to .*, ? to .?
+                    pattern = ngx_re.gsub(pattern, [=[[\*\?]{2,}]=], "*", "jo") -- remove continous * or ?
+                    pattern = ngx_re.gsub(pattern, [=[[\.\(\)]+]=], [[\$0]], "jo") -- add \ before . ( )
+                    pattern = ngx_re.gsub(pattern, [=[[\*\?]]=], ".$0", "jo") -- convert * to .*, ? to .?
                     pattern = "^" .. pattern .. "$" -- match the whole word
                     for i=#keys, 1, -1 do
-                        if not ngx.re.match(keys[i], pattern, "jo") then
-                            table.remove(keys, i)
+                        if not ngx_re.match(keys[i], pattern, "jo") then
+                            table_remove(keys, i)
                         end
                     end
                     return keys
@@ -98,7 +100,7 @@ end
                     -- provide a jailed environment
                     -- optionally: http://metalua.luaforge.net/src/lib/strict.lua.html
                     local env = {
-                        ngx = { shared = ngx.shared, re = ngx.re },
+                        ngx = { shared = ngx_shared, re = ngx_re },
                         shdict = new_tab(2, 0),
                         zone = zone,
                         KEYS = arg,

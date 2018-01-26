@@ -6,6 +6,10 @@ local type = type
 local sub = string.sub
 local byte = string.byte
 local table_concat = table.concat
+local ngx_log = ngx.log
+local ngx_re = ngx.re
+local ngx_print = ngx.print
+local ngx_shared = ngx.shared
 
 local ok, new_tab = pcall(require, "table.new")
 if not ok or type(new_tab) ~= "function" then
@@ -60,7 +64,7 @@ local function _do_cmd(self, cmd, args)
             break
         end
 
-        local dict = ngx.shared[self.shdict]
+        local dict = ngx_shared[self.shdict]
         if not dict then
             ret.err = "shdict '".. self.shdict .."' not defined"
             if cmd == "select" then
@@ -112,15 +116,15 @@ local function _parse_line(line)
     local flush_buf = false
     local unquoted = false
     local argc = 0
-    local it, err = ngx.re.gmatch(line, "(.)", "jo")
+    local it, err = ngx_re.gmatch(line, "(.)", "jo")
     if not it then
-        ngx.log(ngx.ERR, "error splitting arguments ", err)
+        ngx_log(ngx.DEBUG, "error splitting arguments ", err, ", line: ", line)
         return nil, nil
     end
     while true do
         local v, err = it()
         if err then
-            ngx.log(ngx.ERR, "error iterating arguments ", err)
+            ngx_log(ngx.DEBUG, "error iterating arguments ", err, ", line: ", line)
             return nil, nil
         end
         if not v then
@@ -248,7 +252,7 @@ local function output_json(ret)
     local output = {ok = true, response = nil, error = nil}
     local json = require("cjson")
     if not json then
-        ngx.log(ngx.ERR, "cjson is not found")
+        ngx_log(ngx.WARN, "cjson is not found while output_json handler is selected")
         ngx.exit(500)
     end
     
@@ -270,7 +274,7 @@ function _M.serve_http(self, output_filter)
     if self.password and ngx.var.arg_password then
         local ret = _do_cmd(self, "auth", { ngx.var.arg_password })
         if ret.err ~= nil then
-            ngx.say(output_plain(ret))
+            ngx_print(output_plain(ret))
             return
         end
     end
@@ -278,14 +282,14 @@ function _M.serve_http(self, output_filter)
     local cmd, args = _parse_line(ngx.unescape_uri(ngx.var.arg_cmd))
 
     if not cmd then
-        ngx.say("Invalid argument(s)")
+        ngx_print("Invalid argument(s)")
         return
     end
 
     local ret = _do_cmd(self, cmd, args)
 
     output_filter = output_filter or output_plain
-    ngx.say(output_filter(ret))
+    ngx_print(output_filter(ret))
 
 end
 
@@ -415,7 +419,7 @@ local function _serialize_redis(data)
             elseif v == nil then
                 r[#r + 1] = "$-1"
             else
-                ngx.log(ngx.ERR, "value ", v, " can't be serialized in a array")
+                ngx_log(ngx.DEBUG, "value ", v, " (type: ", type(v), ") can't be serialized in an array")
             end
         end
         -- add trailling CRLF
@@ -462,19 +466,19 @@ function _M.serve_stream_redis(self)
         if prefix == 42 then -- char '*'
             cmd, args = _parse_redis_req(line, sock)
             if cmd == nil then
-                ngx.print(output_redis({["err"] = args}))
+                ngx_print(output_redis({["err"] = args}))
             end
         else
             cmd, args = _parse_line(line)
         end
 
         if not cmd then
-            ngx.print("Invalid argument(s)" .. CRLF)
+            ngx_print("Invalid argument(s)", CRLF)
         elseif cmd == "quit" then
             return
         else
             local ret = _do_cmd(self, cmd, args)
-            ngx.print(output_redis(ret))
+            ngx_print(output_redis(ret))
         end
         ::redis_nextline::
     end
@@ -491,13 +495,13 @@ function _M.serve(self, mode)
         elseif ngx.config.subsystem == "stream" then
             mode = "stream_redis"
         else
-            ngx.log(ngx.ERR, "subsystem ", ngx.config.subsystem, " not supported")
+            ngx_log(ngx.ERR, "subsystem ", ngx.config.subsystem, " is not supported")
             ngx.exit(500)
         end
     end
     local handler = _M["serve_" .. mode]
     if not handler then
-        ngx.log(ngx.ERR, "handler ", mode, " not found")
+        ngx_log(ngx.ERR, "handler ", mode, " not found")
         ngx.exit(500)
     end
 
