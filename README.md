@@ -43,7 +43,20 @@ Experimental.
 Synopsis
 ========
 
-Shared dictionaries defined in `http` and `stream` subsystems are not shared to each other *currently*, thus we need two sets of configurations to debug with either subsystem. Despite from this, this module provide a similar API to use in both subsystems.
+Shared dictionaries defined in `http` and `stream` subsystems are not shared to each other *currently*, thus we need two sets of configurations to debug with either subsystem. 
+
+However there're [patches](patches) if you want to share shdict between `http` and `stream` subsystems. After apply the patch, you will need to use two `lua_shared_dict` directive to define shared dict twice with same name and size. e.g.:
+
+```lua
+http {
+    lua_shared_dict dogs 10m;
+}
+
+stream {
+    lua_shared_dict dogs 10m;
+}
+```
+
 
 http
 ----
