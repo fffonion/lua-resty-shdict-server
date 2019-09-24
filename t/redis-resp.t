@@ -1,14 +1,24 @@
 # vim:set ft= ts=4 sw=4 et fdm=marker:
 
+
 use Test::Nginx::Socket::Lua::Stream 'no_plan';
+
+use Cwd qw(cwd);
+
+
+my $pwd = cwd();
+
+our $StreamConfig = qq{
+    lua_package_path "$pwd/lib/?.lua;$pwd/lib/?/init.lua;;";
+    lua_shared_dict dogs 1m;
+};
 
 no_shuffle();
 run_tests();
 
 __DATA__
 === TEST 1: Redis RESP protocol simple get.
---- stream_config
-    lua_shared_dict dogs 1m;
+--- stream_config eval: $::StreamConfig
 --- stream_server_config
     content_by_lua_block {
         ngx.shared.dogs:set("doge", "wow")
@@ -35,8 +45,7 @@ quit\r
 
 
 === TEST 2: Redis RESP protocol initialized without shdict, no dict arg.
---- stream_config
-    lua_shared_dict dogs 1m;
+--- stream_config eval: $::StreamConfig
 --- stream_server_config
     content_by_lua_block {
         ngx.shared.dogs:set("doge", "wow")
@@ -63,8 +72,7 @@ quit\r
 
 
 === TEST 3: Redis RESP protocol initialized without shdict, has dict arg.
---- stream_config
-    lua_shared_dict dogs 1m;
+--- stream_config eval: $::StreamConfig
 --- stream_server_config
     content_by_lua_block {
         ngx.shared.dogs:set("doge", "wow")
@@ -98,8 +106,7 @@ quit\r
 
 
 === TEST 4: Redis RESP protocol initialized without shdict, has wrong dict arg.
---- stream_config
-    lua_shared_dict dogs 1m;
+--- stream_config eval: $::StreamConfig
 --- stream_server_config
     content_by_lua_block {
         ngx.shared.dogs:set("doge", "wow")
@@ -126,8 +133,7 @@ quit\r
 
 
 === TEST 5: Redis RESP protocol initialized with password, no password arg.
---- stream_config
-    lua_shared_dict dogs 1m;
+--- stream_config eval: $::StreamConfig
 --- stream_server_config
     content_by_lua_block {
         ngx.shared.dogs:set("doge", "wow")
@@ -161,8 +167,7 @@ quit\r
 
 
 === TEST 6: Redis RESP protocol initialized with password, has password arg.
---- stream_config
-    lua_shared_dict dogs 1m;
+--- stream_config eval: $::StreamConfig
 --- stream_server_config
     content_by_lua_block {
         ngx.shared.dogs:set("doge", "wow")
@@ -203,8 +208,7 @@ quit\r
 
 
 === TEST 7: Redis RESP protocol initialized with password, wrong password arg.
---- stream_config
-    lua_shared_dict dogs 1m;
+--- stream_config eval: $::StreamConfig
 --- stream_server_config
     content_by_lua_block {
         ngx.shared.dogs:set("doge", "wow")

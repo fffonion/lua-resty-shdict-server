@@ -74,7 +74,7 @@ if ngx_shared then
                     if numkeys ~= nil then
                         numkeys = tonumber(numkeys)
                         if numkeys == nil then
-                            return "nil", "value is not an integer or out of range"
+                            return nil, "value is not an integer or out of range"
                         elseif numkeys < 0 then
                             return nil, "Number of keys can't be negative"
                         elseif #arg < numkeys then

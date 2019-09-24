@@ -3,6 +3,8 @@ Name
 
 lua-resty-shdict-server - A HTTP and Redis protocol compatible interface for debugging ngx.shared API
 
+![Build status](https://travis-ci.com/fffonion/lua-resty-shdict-server.svg?branch=master)
+
 Table of Contents
 =================
 
@@ -38,7 +40,7 @@ It can also be used as a mocking Redis server (WIP).
 Status
 ========
 
-Experimental.
+Production.
 
 Synopsis
 ========
