@@ -2,13 +2,22 @@
 
 use Test::Nginx::Socket::Lua::Stream 'no_plan';
 
+use Cwd qw(cwd);
+
+
+my $pwd = cwd();
+
+our $StreamConfig = qq{
+    lua_package_path "$pwd/lib/?.lua;$pwd/lib/?/init.lua;;";
+    lua_shared_dict dogs 1m;
+};
+
 no_shuffle();
 run_tests();
 
 __DATA__
 === TEST 1: Redis commands KEYS 
---- stream_config
-    lua_shared_dict dogs 1m;
+--- stream_config eval: $::StreamConfig
 --- stream_server_config
     content_by_lua_block {
         ngx.shared.dogs:set("doge1", "wow")
@@ -51,8 +60,7 @@ doge1\r
 [error]
 
 === TEST 2: Redis commands EVAL keys and argv
---- stream_config
-    lua_shared_dict dogs 1m;
+--- stream_config eval: $::StreamConfig
 --- stream_server_config
     content_by_lua_block {
         ngx.shared.dogs:set("doge", "wow")
@@ -121,8 +129,7 @@ quit\r
 
 
 === TEST 3: Redis commands EVAL shdict.call no error
---- stream_config
-    lua_shared_dict dogs 1m;
+--- stream_config eval: $::StreamConfig
 --- stream_server_config
     content_by_lua_block {
         ngx.shared.dogs:set("doge", "wow")
@@ -174,8 +181,7 @@ quit\r
 
 
 === TEST 4: Redis commands EVAL shdict.call and shdict.pcall error handling
---- stream_config
-    lua_shared_dict dogs 1m;
+--- stream_config eval: $::StreamConfig
 --- stream_server_config
     content_by_lua_block {
         ngx.shared.dogs:set("doge", "wow")
