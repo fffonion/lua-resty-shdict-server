@@ -1,0 +1,68 @@
+diff --git a/bundle/ngx_lua-0.10.15/src/ngx_http_lua_directive.c b/bundle/ngx_lua-0.10.15/src/ngx_http_lua_directive.c
+index a989c26..b5bc8af 100644
+--- a/bundle/ngx_lua-0.10.15/src/ngx_http_lua_directive.c
++++ b/bundle/ngx_lua-0.10.15/src/ngx_http_lua_directive.c
+@@ -125,7 +125,7 @@ ngx_http_lua_shared_dict(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+     ctx->log = &cf->cycle->new_log;
+
+     zone = ngx_http_lua_shared_memory_add(cf, &name, (size_t) size,
+-                                          &ngx_http_lua_module);
++                                          &ngx_shared_memory_add);
+     if (zone == NULL) {
+         return NGX_CONF_ERROR;
+     }
+@@ -133,10 +133,16 @@ ngx_http_lua_shared_dict(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+     if (zone->data) {
+         ctx = zone->data;
+
+-        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+-                           "lua_shared_dict \"%V\" is already defined as "
+-                           "\"%V\"", &name, &ctx->name);
+-        return NGX_CONF_ERROR;
++        if((&name)->len == (&ctx->name)->len &&
++                ! ngx_strcmp((&name)->data, (&ctx->name)->data) &&
++                zone->tag == &ngx_shared_memory_add) {
++            dd("same zone in other subsystem");
++        } else {
++            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
++                               "http lua_shared_dict \"%V\" is already defined as "
++                               "\"%V\"", &name, &ctx->name);
++            return NGX_CONF_ERROR;
++        }
+     }
+
+     zone->init = ngx_http_lua_shdict_init_zone;
+diff --git a/bundle/ngx_stream_lua-0.0.7/src/ngx_stream_lua_directive.c b/bundle/ngx_stream_lua-0.0.7/src/ngx_stream_lua_directive.c
+index d32edea..248f961 100644
+--- a/bundle/ngx_stream_lua-0.0.7/src/ngx_stream_lua_directive.c
++++ b/bundle/ngx_stream_lua-0.0.7/src/ngx_stream_lua_directive.c
+@@ -123,7 +123,7 @@ ngx_stream_lua_shared_dict(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+     ctx->log = &cf->cycle->new_log;
+
+     zone = ngx_stream_lua_shared_memory_add(cf, &name, (size_t) size,
+-                                            &ngx_stream_lua_module);
++                                            &ngx_shared_memory_add);
+     if (zone == NULL) {
+         return NGX_CONF_ERROR;
+     }
+@@ -131,10 +131,16 @@ ngx_stream_lua_shared_dict(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+     if (zone->data) {
+         ctx = zone->data;
+
+-        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+-                           "lua_shared_dict \"%V\" is already defined as "
+-                           "\"%V\"", &name, &ctx->name);
+-        return NGX_CONF_ERROR;
++        if((&name)->len == (&ctx->name)->len &&
++                ! ngx_strcmp((&name)->data, (&ctx->name)->data) &&
++                zone->tag == &ngx_shared_memory_add) {
++            dd("same zone in other subsystem");
++        } else {
++            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
++                               "stream lua_shared_dict \"%V\" is already defined as "
++                               "\"%V\"", &name, &ctx->name);
++            return NGX_CONF_ERROR;
++        }
+     }
+
+     zone->init = ngx_stream_lua_shdict_init_zone;
